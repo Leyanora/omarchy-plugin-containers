@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
 
 Omarchy 4.5 compatibility ([#2](https://github.com/Leyanora/omarchy-plugin-containers/issues/2)).
 
