@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased
+
+Omarchy 4.5 compatibility ([#2](https://github.com/Leyanora/omarchy-plugin-containers/issues/2)).
+
+### Fixed
+
+- **Widgets in `centerBegin`, `centerEnd` and `tray` vanished from the bar.** The layout
+  handed to the hosted bar now carries all six 4.5 sections, and any section it does not
+  know is passed through. A member or container sitting in one of them is found where it
+  is, rather than duplicated into `right`.
+- **An open container drew nothing in strip mode.** The 4.5 bar window spans the whole
+  screen, so the strip measured the bar as screen-tall and put its card off-screen. It
+  now asks the bar for its thickness (`barSizeFor`), notch floor included, and clicking
+  outside the strip closes it again.
+- A hosted plugin's keyboard panel opens just past the strip card instead of on top of
+  it.
+- The manager panel is built only once the store exists, which silences the burst of
+  `Cannot read property … of null` errors at start-up.
+- A hosted widget is unloaded before its bar facade goes, so tearing a container down no
+  longer logs `hideTooltip is not a function`.
+- `omarchy-shell shell toggleBarTransparency` works with this bar again (`cycleBackground`),
+  and notifications and panels see the per-screen bar size.
+
+- **Dragging a widget along the bar did nothing** whenever a contained widget sat before
+  it. The bar counted positions over what it draws and wrote them into the full layout,
+  where the hidden widgets shifted them, so the move was rejected. The bar's layout writes
+  now go through the projection, and contained widgets keep their place beside the
+  neighbours that did not move.
+
+### Changed
+
+- The tray (`omarchy.tray`) can no longer be put in a container: it draws the bar's
+  `tray` section in its drawer, so containing it would hide every widget in that section.
+  Widgets *in* the tray section can still be contained.
+- The built-in indicators (`omarchy.indicators`: do not disturb, night light, stay awake
+  and the rest) can no longer be put in a container either. They rely on bar services a
+  hosted widget is not given. A container that already holds them lets them go back to
+  the bar.
+- A config last written while this plugin was the bar still has the pre-4.5 centre
+  (`centerAnchor`), because Omarchy's own migration skips third-party bars. It is split
+  into `centerBegin` / `center` / `centerEnd` the same way on first start.
+
 ## 2.0.0
 
 Omarchy 4.0.0.alpha put third-party bar widgets behind capability facades that

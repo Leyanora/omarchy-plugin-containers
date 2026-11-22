@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
@@ -92,12 +93,17 @@ BarWidget {
     }
   }
 
-  ManagePanel {
-    anchorItem: boxButton
-    bar: root.bar
-    owner: root
-    open: root.manageOpen && !!root.store
-    store: root.store
+  // Built only once there is a store: the stock bar draws this button before ours publishes.
+  LazyLoader {
+    active: !!root.store
+
+    ManagePanel {
+      anchorItem: boxButton
+      bar: root.bar
+      owner: root
+      open: root.manageOpen
+      store: root.store
+    }
   }
 
   IpcHandler {

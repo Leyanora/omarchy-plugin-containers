@@ -57,11 +57,23 @@ PanelWindow {
     }
   }
 
-  // Shaped like a second bar row: full width along the bar's axis, card-thick across it.
-
   readonly property bool horizontalBar: barPos === "top" || barPos === "bottom"
-  readonly property real barThickness: horizontalBar ? barH : barW
+  readonly property var hostBar: coordinator ? coordinator.bar : null
+  // Omarchy 4.5's bar window spans the screen; only barSizeFor() still says how thick it is.
+  readonly property real barThickness: {
+    if (hostBar && typeof hostBar.barSizeFor === "function" && screen)
+      return hostBar.barSizeFor(screen.name)
+    return horizontalBar ? barH : barW
+  }
   readonly property real barOffset: barThickness + gap
+  readonly property real cardReach: barOffset + (horizontalBar ? contentHeight : contentWidth)
+
+  Binding {
+    target: root.coordinator
+    property: "stripReach"
+    value: root.cardReach
+    when: !!root.coordinator
+  }
 
   screen: anchorWindow ? anchorWindow.screen : null
   visible: open || card.opacity > 0
@@ -73,7 +85,7 @@ PanelWindow {
   // No keyboard focus: hosted popups that want keys still take their own.
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-  // Starts at the screen edge: a hosted KeyboardPanel opens one window-thickness past it.
+  // Starts at the screen edge, so a hosted panel told the card's reach opens just past it.
   anchors {
     top: root.horizontalBar ? root.barPos === "top" : true
     bottom: root.horizontalBar ? root.barPos === "bottom" : true

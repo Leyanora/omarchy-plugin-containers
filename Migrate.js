@@ -36,7 +36,7 @@ function looksKeptAlive(entry, record) {
 }
 
 // 1.1.0 took the member out of the bar; 1.1.1 left a placeholder entry in its place.
-function restoreMember(barConfig, pluginId, record) {
+function restoreMember(barConfig, pluginId, record, centreBox) {
   var entry = safeEntry(isObject(record) ? record.entry : null, pluginId)
 
   var at = Layout.locate(barConfig, pluginId)
@@ -47,8 +47,10 @@ function restoreMember(barConfig, pluginId, record) {
   }
 
   if (record && record.inBar === false) return false
-  var section = ["left", "center", "right"].indexOf(String(record && record.section)) !== -1
-    ? String(record.section) : "right"
+  var recorded = String(record && record.section)
+  // 1.x centre widgets flanked the clock; in the 4.5 centre box they would push it aside.
+  var centre = centreBox ? "centerEnd" : "center"
+  var section = recorded === "center" ? centre : (recorded === "left" ? "left" : "right")
   var entries = Layout.sectionIn(barConfig, section)
   var index = Math.max(0, Math.min(entries.length, Math.floor(Number(record && record.index)) || 0))
   entries.splice(index, 0, entry)
@@ -74,8 +76,58 @@ function stripSlotSources(barConfig, moduleName) {
   return changed
 }
 
+function pinTray(entries, first) {
+  if (!Array.isArray(entries)) return false
+  var trays = []
+  var rest = []
+  for (var i = 0; i < entries.length; i++) {
+    if (Layout.entryId(entries[i]) === "omarchy.tray") trays.push(entries[i])
+    else rest.push(entries[i])
+  }
+  if (trays.length === 0) return false
+  var tray = trays[trays.length - 1]
+  var next = first ? [tray].concat(rest) : rest.concat([tray])
+  if (JSON.stringify(next) === JSON.stringify(entries)) return false
+  entries.splice.apply(entries, [0, entries.length].concat(next))
+  return true
+}
+
+// Ports migrations 1791968925/1791969355, which skip a plugin bar; centerAnchor marks pre-4.5.
+function upgradeSections(barConfig) {
+  if (!isObject(barConfig) || !barConfig.hasOwnProperty("centerAnchor")) return false
+  var layout = isObject(barConfig.layout) ? barConfig.layout : null
+  if (layout) {
+    pinTray(layout.right, true)
+    pinTray(layout.left, false)
+    pinTray(layout.center, false)
+
+    var anchor = typeof barConfig.centerAnchor === "string" ? barConfig.centerAnchor : ""
+    var center = Array.isArray(layout.center) ? layout.center : []
+    var index = -1
+    for (var i = 0; anchor !== "" && i < center.length; i++) {
+      if (Layout.entryId(center[i]) === anchor) { index = i; break }
+    }
+    if (index !== -1) {
+      var begin = Array.isArray(layout.centerBegin) ? layout.centerBegin : []
+      var end = Array.isArray(layout.centerEnd) ? layout.centerEnd : []
+      layout.centerBegin = begin.concat(center.slice(0, index))
+      layout.centerEnd = center.slice(index + 1).concat(end)
+      layout.center = [center[index]]
+    }
+  }
+  delete barConfig.centerAnchor
+  return true
+}
+
 // Returns true when it changed something, so the caller can skip a pointless write.
-function migrate(barConfig, moduleName) {
+// centreBox: the running bar has 4.5's centerBegin/center/centerEnd sections.
+function migrate(barConfig, moduleName, centreBox) {
+  var box = centreBox !== false
+  var upgraded = box && upgradeSections(barConfig)
+  return migrateBlock(barConfig, moduleName, box) || upgraded
+}
+
+function migrateBlock(barConfig, moduleName, centreBox) {
   var at = Layout.locate(barConfig, moduleName)
   var legacy = at.found && isObject(at.entry) ? at.entry : null
   var hasLegacy = !!legacy
@@ -90,10 +142,11 @@ function migrate(barConfig, moduleName) {
   if (hasLegacy) {
     var stashed = isObject(legacy.stashed) ? legacy.stashed : {}
     var members = Model.allMembers(state)
-    for (var i = 0; i < members.length; i++) restoreMember(barConfig, members[i], stashed[members[i]])
+    for (var i = 0; i < members.length; i++)
+      restoreMember(barConfig, members[i], stashed[members[i]], centreBox)
     // A record nothing holds any more still describes a widget taken off the bar.
     for (var key in stashed) {
-      if (members.indexOf(key) === -1) restoreMember(barConfig, key, stashed[key])
+      if (members.indexOf(key) === -1) restoreMember(barConfig, key, stashed[key], centreBox)
     }
     delete legacy.containers
     delete legacy.stashed

@@ -24,6 +24,11 @@ Item {
   // the lookup, and a binding that reads it re-enters itself.
   property var hostShell: null
   Component.onCompleted: hostShell = store ? store.shellFor(root.pluginId) : null
+  // 4.5's WidgetButton calls bar.hideTooltip() unguarded as it hides; unload while bar lives.
+  Component.onDestruction: {
+    loader.sourceComponent = null
+    loader.source = ""
+  }
   property color foreground: Color.popups.text
 
   // Hosted in the bar's own slot, where a panel already measures from the right window.
@@ -36,14 +41,6 @@ Item {
   readonly property var widget: loader.item
   readonly property bool failed: loader.status === Loader.Error
     || (!root.widgetComponent && String(root.source) === "")
-
-  // The plugin's own view of the bar. Per cell: `bar.shell` is how a widget reaches the
-  // shell, and the host scopes that facade to one plugin id.
-  HostBar {
-    id: cellBar
-    coordinator: root.coordinator
-    shell: root.hostShell
-  }
 
   // Named for HostTooltip.stillHovered(), which polls this exact property on its target.
   property bool tooltipHovered: false
@@ -138,7 +135,7 @@ Item {
     }
   }
 
-  // KeyboardPanel measures from the strip window's far edge, which already is the card's.
+  // KeyboardPanel clears HostBar.barSizeFor(), the card's reach; PopupCard needs its margin.
   function alignPanel(node, window) {
     if (!node || !("anchorItem" in node) || !("contentWidth" in node) || !("open" in node)) return
     var anchor = node.anchorItem
@@ -196,6 +193,14 @@ Item {
       target: root
       function onHostSettingsChanged() { loader.injectProps() }
       function onPanelBaselineChanged() { root.tunePanels() }
+    }
+
+    // Declared after the Loader, so it outlives the widget: children die in creation order.
+    HostBar {
+      id: cellBar
+      coordinator: root.coordinator
+      shell: root.hostShell
+      pluginId: root.pluginId
     }
 
     Text {

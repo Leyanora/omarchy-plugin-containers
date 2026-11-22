@@ -11,6 +11,8 @@ QtObject {
 
   property var coordinator: null
   property var shell: null
+  property string pluginId: ""
+  readonly property string moduleName: pluginId
 
   readonly property var bar: coordinator ? coordinator.bar : null
   readonly property bool inline: coordinator ? coordinator.inline === true : false
@@ -35,8 +37,22 @@ QtObject {
   readonly property var layoutConfig: bar && bar.layoutConfig
     ? JSON.parse(JSON.stringify(bar.layoutConfig)) : ({})
 
+  // KeyboardPanel and PopupCard place themselves this far from the screen edge.
+  function barSizeFor(screenName) {
+    if (inline && bar && typeof bar.barSizeFor === "function") return bar.barSizeFor(screenName)
+    if (!inline && coordinator && coordinator.stripReach > 0) return coordinator.stripReach
+    return barSize
+  }
+
+  readonly property bool centerSectionRevealHeld: false
+  readonly property bool centerHoverRevealSuppressed: false
+  function setCenterHoverRevealSuppressed(value) {}
+
+  // No card morph between panels: the container's popouts are not the bar's.
+  function notePopoutCard(card) {}
+  function popoutCardFor(owner) { return null }
+
   function run(command) { if (bar) bar.run(command) }
-  function shellQuote(value) { return bar ? bar.shellQuote(value) : String(value) }
   function targetBelongsToWindow(target, window) {
     return bar ? bar.targetBelongsToWindow(target, window) : false
   }

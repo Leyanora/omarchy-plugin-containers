@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 import "Store.js" as Model
 import "Layout.js" as Layout
 import "Migrate.js" as Migrate
@@ -86,7 +87,7 @@ QtObject {
     var out = []
     var widgets = registered
     for (var id in widgets) {
-      if (id === moduleName) continue
+      if (id === moduleName || !Model.hostable(id)) continue
       var meta = widgets[id] && widgets[id].metadata ? widgets[id].metadata : {}
       out.push({
         id: id,
@@ -302,10 +303,12 @@ QtObject {
   function migrate() {
     if (!ready) return false
     var probe = Model.clone(barConfig)
-    if (!Migrate.migrate(probe, moduleName)) return false
+    var sections = Util.barSections
+    var centreBox = Array.isArray(sections) && sections.indexOf("centerEnd") !== -1
+    if (!Migrate.migrate(probe, moduleName, centreBox)) return false
     shell.mutateShellConfig(function (config) {
       if (!config.bar || typeof config.bar !== "object") config.bar = {}
-      Migrate.migrate(config.bar, moduleName)
+      Migrate.migrate(config.bar, moduleName, centreBox)
     })
     return true
   }

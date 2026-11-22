@@ -12,6 +12,9 @@ QtObject {
   // Set when the container draws its widgets in its own bar slot rather than in a strip.
   property bool inline: false
 
+  // Screen edge to the strip card's far edge: the bar thickness a hosted panel has to clear.
+  property real stripReach: 0
+
   signal tooltipRequested(var target, string text)
   signal tooltipDismissed(var target)
 

@@ -405,6 +405,13 @@ function moveMemberBetween(state, fromId, toId, pluginId) {
   return { state: next, moved: true }
 }
 
+// Bar-bound: the tray draws the `tray` section, the indicators need the bar's services.
+var UNHOSTABLE = ["omarchy.tray", "omarchy.indicators"]
+
+function hostable(pluginId) {
+  return UNHOSTABLE.indexOf(String(pluginId)) === -1
+}
+
 // Drops members naming a widget the bar no longer has.
 function prune(state, hostable) {
   var next = clone(state)

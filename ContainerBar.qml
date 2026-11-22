@@ -57,11 +57,11 @@ Item {
   // Read out of the config being projected rather than off the store: a binding that
   // crossed to the store saw last read's containers and built the bar without them, then
   // rebuilt it a frame later once they arrived.
-  readonly property var liveConfig: {
-    var block = Layout.readBlock(root.barConfig, root.moduleName)
-    var containers = Model.normalize(block, root.moduleName).containers
-    return Layout.project(root.barConfig, containers, root.moduleName, root.slotSource)
-  }
+  readonly property var liveContainers:
+    Model.normalize(Layout.readBlock(root.barConfig, root.moduleName), root.moduleName).containers
+
+  readonly property var liveConfig:
+    Layout.project(root.barConfig, root.liveContainers, root.moduleName, root.slotSource)
 
   // Held while a surface is open, for the same reason the writes are: reassigning the
   // hosted bar's layout rebuilds every widget on every monitor and takes the surface
@@ -77,6 +77,24 @@ Item {
     restoreMode: Binding.RestoreNone
   }
 
+  // The bar's drag indexes count only what it draws, so its writes are mapped back through these.
+  property var renderedContainers: []
+
+  Binding {
+    target: root
+    property: "renderedContainers"
+    value: root.liveContainers
+    when: !root.surfaceOpen
+    restoreMode: Binding.RestoreNone
+  }
+
+  ShellProxy {
+    id: shellProxy
+    target: root.shell
+    moduleName: root.moduleName
+    containers: root.renderedContainers
+  }
+
   Component.onCompleted: Bridge.publish(root)
   Component.onDestruction: Bridge.withdraw(root)
 
@@ -87,6 +105,12 @@ Item {
   readonly property bool barHidden: inner ? inner.barHidden === true : false
   readonly property string fontFamily: inner ? String(inner.fontFamily || "") : ""
   readonly property string position: inner ? String(inner.position || "top") : "top"
+  readonly property var screenBarSizes: inner && inner.screenBarSizes ? inner.screenBarSizes : ({})
+
+  function barSizeFor(screenName) {
+    if (inner && typeof inner.barSizeFor === "function") return inner.barSizeFor(screenName)
+    return barSize
+  }
 
   // A summon naming a contained plugin has no slot to land on; the container opens instead.
   function containerHolding(id) {
@@ -105,7 +129,12 @@ Item {
 
   function hideBarWidget(id) { return inner ? inner.hideBarWidget(id) : false }
   function isBarWidgetOpen(id) { return inner ? inner.isBarWidgetOpen(id) : false }
-  function toggleTransparency() { if (inner) inner.toggleTransparency() }
+  // Omarchy 4.5 renamed the two-state toggleTransparency to the three-state cycleBackground.
+  function cycleBackground() {
+    if (inner && typeof inner.cycleBackground === "function") inner.cycleBackground()
+    else if (inner && typeof inner.toggleTransparency === "function") inner.toggleTransparency()
+  }
+  function toggleTransparency() { cycleBackground() }
   function debugBarGeometry() { return inner ? inner.debugBarGeometry() : [] }
   function panelWidgetIdAt(section, index) {
     return inner ? inner.panelWidgetIdAt(section, index) : ""
@@ -119,7 +148,7 @@ Item {
       item.omarchyPath = Qt.binding(function () { return root.omarchyPath })
       item.barWidgetRegistry = Qt.binding(function () { return root.barWidgetRegistry })
       item.pluginRegistry = Qt.binding(function () { return root.pluginRegistry })
-      item.shell = Qt.binding(function () { return root.shell })
+      item.shell = Qt.binding(function () { return root.shell ? shellProxy : null })
       item.manifest = Qt.binding(function () { return root.manifest })
       item.barConfig = Qt.binding(function () { return root.renderedConfig })
     }
